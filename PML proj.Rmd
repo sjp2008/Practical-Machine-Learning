@@ -1,0 +1,84 @@
+###PRACTICAL MACHINE LEARNING COURSE PROJECT
+
+###PROJECT SUMMARY:
+In this project, the goal is to use data from the accelerometers (Fitbit, Nike Fuelband, etc.) of six participants and predict the manner in which they did a dumbbell lifting exercise.
+
+In the study, six people participated in a dumbell lifting exercise five different ways. The five ways, as described in the study, were "exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes."
+
+The variable we will be predicting on is "classe" and the data is split up between the five classes. By processing data gathered from accelerometers in a machine learning algorithm, can the appropriate activity quality (class A-E) be predicted?
+
+Training and test data were provided from the following study:
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+More information is available from this website: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+###Data Processing
+Let's begin by loading the data and R packages needed.
+``` {r Load data}
+## Set working directory then load train and test data
+train = read.csv("pml-training.csv", na.strings=c("NA",""), header=T)
+test = read.csv("pml-testing.csv", na.strings=c("NA",""),header=T)
+library(AppliedPredictiveModeling)
+library(caret)
+library(e1071)
+library(randomForest)
+```
+
+Let's look at the missing values in each column.
+```{r Look at NAs}
+na_test = sapply(train, function(x) {sum(is.na(x))})
+table(na_test)
+```
+100 columns of the 160 in the dataset have almost all missing values. We will remove these columns from our training data and then take a look at the remaining columns.
+``` {r remove na columns}
+na_columns = names(na_test[na_test==19216])
+train = train[, !names(train) %in% na_columns]
+str(train)
+```
+In order to look only at the variables related to movement, we will also remove the first seven columns of the dataset that have to do with the sequence and subject.
+```{r remove irrelevant columns}
+train = train[,-c(1:7)]
+```
+
+
+###Exploratory Data Analysis
+Let's take a look at the "classe" variable since that's what we will build our prediction model on.
+```{r classe variable}
+summary(train$classe)
+```
+```{r plot classe}
+plot(train$classe, col="light blue", main = "'Class' Variable Frequency")
+```
+
+
+###Build model
+We will now create a model to predict the movement class using the random forest machine learning technique on the remaining variables in the Train dataset. We will build the model using 4-fold cross validation. Note: This model takes a while to run so you may want to save it once it's finished.
+```{r build model}
+model = train(classe ~ ., data=train, method="rf", prox=T, trControl = trainControl(method="cv", number=4, allowParallel=T))
+saveRDS(model, "rfmodel.RDS")
+model = readRDS("rfmodel.RDS")
+model
+```
+
+
+###In Sample Accuracy
+Next, we calculate the in-sample accuracy which is the prediction accuracy of our model when applied to the Train dataset.
+```{r in sample accuracy}
+train_pred = predict(model, train)
+confusionMatrix(train_pred, train$classe)
+```
+So from the Confusion Matrix statistics, we see that the in-sample accuracy value is 1 which is 100%!
+
+
+###Prediction applied to Test dataset
+Next, we apply the model machine learning algorithm we built above, to each of the 20 test cases in the Test dataset.
+```{r test dataset}
+assignmtans = predict(model, test)
+assignmtans = as.character(assignmtans)
+assignmtans
+```
+
+
+###Conclusion
+We have successfully built a model to predict exercise form based on movement data from accelerometers and we estimate the out of sample error to be extremely low. This is a promising result regarding the use of machine learning to detect bad exercise form in a small sample of six participants but we would expect the error of predicting bad form in real life situations on large groups of subjects to be higher.
